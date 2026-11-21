@@ -48,11 +48,11 @@ func appendSilence(duration, sampleRate float64) []float64 {
 func textToMorseAudio(text, filename string) {
 	morseCode := textToMorse(text)
 
-	dotDuration := 0.1        // Duration of a dot in seconds
+	dotDuration := 0.1              // Duration of a dot in seconds
 	dashDuration := 3 * dotDuration // Duration of a dash
-	frequency := 1000.0       // Frequency of the tone
-	sampleRate := 44100.0     // Samples per second
-	amplitude := 0.5          // Amplitude of the tone
+	frequency := 1000.0             // Frequency of the tone
+	sampleRate := 44100.0           // Samples per second
+	amplitude := 0.5                // Amplitude of the tone
 
 	var audioSequence []float64
 
@@ -78,7 +78,7 @@ func textToMorseAudio(text, filename string) {
 	intBuf := &audio.IntBuffer{Data: make([]int, len(audioSequence)), Format: &audio.Format{SampleRate: int(sampleRate), NumChannels: 1}}
 
 	for i, v := range audioSequence {
-		intBuf.Data[i] = int(v * (1 << 15-1))
+		intBuf.Data[i] = int(v * (1<<15 - 1))
 	}
 
 	if err := enc.Write(intBuf); err != nil {
@@ -96,14 +96,41 @@ func textToMorseAudio(text, filename string) {
 func main() {
 	text := flag.String("t", "", "Input text to convert to Morse code")
 	output := flag.String("o", "morse_output.wav", "Output filename for the Morse code audio")
+	decode := flag.String("d", "", "Decode a mono PCM WAV Morse recording back to text")
+	wpm := flag.Float64("wpm", 0, "Morse speed in words per minute for decoding (0 = auto-estimate)")
+	asJSON := flag.Bool("json", false, "Emit the decoding result and confidence report as JSON")
 	help := flag.Bool("h", false, "Show usage information")
 
 	flag.Parse()
 
-	if *help || *text == "" {
+	if *help {
+		fmt.Println("Encode: morsecode -t \"TEXT\" [-o output.wav]")
+		fmt.Println("Decode: morsecode -d input.wav [-wpm N] [-json]")
+		fmt.Println("  -t     Input text to convert to Morse code audio")
+		fmt.Println("  -o     Output filename for the Morse code audio (default: morse_output.wav)")
+		fmt.Println("  -d     Decode a mono PCM WAV Morse recording back to text")
+		fmt.Println("  -wpm   Morse speed for decoding, words per minute (default: auto-estimated)")
+		fmt.Println("  -json  Print the decoded text and confidence report as JSON")
+		fmt.Println("  -h     Show usage information")
+		return
+	}
+
+	if *decode != "" {
+		if err := runDecode(*decode, DecodeConfig{WPM: *wpm}, *asJSON); err != nil {
+			fmt.Fprintf(os.Stderr, "decode error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if *text == "" {
 		fmt.Println("Usage: morsecode -t \"TEXT\" [-o output.wav]")
+		fmt.Println("       morsecode -d input.wav [-wpm N] [-json]")
 		fmt.Println("  -t  Input text to convert to Morse code")
 		fmt.Println("  -o  Output filename for the Morse code audio (default: morse_output.wav)")
+		fmt.Println("  -d  Decode a mono PCM WAV Morse recording back to text")
+		fmt.Println("  -wpm  Morse speed for decoding, words per minute (default: auto-estimated)")
+		fmt.Println("  -json  Print the decoded text and confidence report as JSON")
 		fmt.Println("  -h  Show usage information")
 		return
 	}
